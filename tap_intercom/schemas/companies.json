@@ -1,6 +1,5 @@
 {
   "type": "object",
-  "additionalProperties": false,
   "properties": {
     "company_id": {
       "type": ["null", "string"]
@@ -11,24 +10,38 @@
     },
     "custom_attributes": {
       "type": ["null", "object"],
-      "additionalProperties": true
+      "properties": {
+        "domain": {
+          "type": ["null", "string"]
+        },
+        "company": {
+          "type": ["null", "string"]
+        },
+        "creation_source": {
+          "type": ["null", "string"]
+        },
+        "avatar": {
+          "type": ["null", "string"]
+        }
+      }
     },
     "id": {
+      "type": ["null", "string"]
+    },
+    "app_id": {
       "type": ["null", "string"]
     },
     "industry": {
       "type": ["null", "string"]
     },
     "monthly_spend": {
-      "type": ["null", "number"],
-      "multipleOf": 1e-8
+      "type": ["null", "number"]
     },
     "name": {
       "type": ["null", "string"]
     },
     "plan": {
       "type": ["null", "object"],
-      "additionalProperties": false,
       "properties": {
         "id": {
           "type": ["null", "string"]
@@ -46,23 +59,24 @@
       "format": "date-time"
     },
     "segments": {
-      "anyOf": [
-        {
-          "type": "array",
+      "type": ["null", "object"],
+      "properties": {
+        "type": {
+          "type": ["null", "string"]
+        },
+        "tags": {
+          "type": ["null", "array"],
           "items": {
             "type": ["null", "object"],
-            "additionalProperties": false,
             "properties": {
               "id": {
                 "type": ["null", "string"]
               }
             }
           }
-        },
-        {
-          "type": "null"
         }
-      ]
+      },
+      "required": ["type", "tags"]
     },
     "session_count": {
       "type": ["null", "integer"]
@@ -71,23 +85,24 @@
       "type": ["null", "integer"]
     },
     "tags": {
-      "anyOf": [
-        {
-          "type": "array",
+      "type": ["null", "object"],
+      "properties": {
+        "type": {
+          "type": ["null", "string"]
+        },
+        "tags": {
+          "type": ["null", "array"],
           "items": {
             "type": ["null", "object"],
-            "additionalProperties": false,
             "properties": {
               "id": {
                 "type": ["null", "string"]
               }
             }
           }
-        },
-        {
-          "type": "null"
         }
-      ]
+      },
+      "required": ["type", "tags"]
     },
     "type": {
       "type": ["null", "string"]
