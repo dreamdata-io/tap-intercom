@@ -89,6 +89,6 @@ class Intercom:
             },
             params=params,
         )
-        LOGGER.info(response.url)
+        LOGGER.debug(response.url)
         response.raise_for_status()
         return response.json()
