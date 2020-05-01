@@ -70,12 +70,9 @@ def main():
     if args.discover:
         catalog = discover()
         catalog.dump()
-    else:
-        if args.catalog:
-            catalog = args.catalog
-        else:
-            catalog = discover()
-        sync(catalog, args.config, args.state)
+        return
+    catalog = args.catalog or discover()
+    sync(catalog, args.config, args.state)
 
 
 if __name__ == "__main__":
