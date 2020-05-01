@@ -34,36 +34,38 @@ class Stream:
         )
         prev_bookmark = None
         start_date, end_date = self.__get_start_end(state)
-        with Transformer(
-            integer_datetime_fmt=UNIX_SECONDS_INTEGER_DATETIME_PARSING
-        ) as transformer:
-            try:
-                data = self.intercom.get_records(self.tap_stream_id)
-                for d, replication_value in data:
+        with singer.metrics.record_counter(self.tap_stream_id) as counter:
+            with Transformer(
+                integer_datetime_fmt=UNIX_SECONDS_INTEGER_DATETIME_PARSING
+            ) as transformer:
+                try:
+                    data = self.intercom.get_records(self.tap_stream_id)
+                    for d, replication_value in data:
 
-                    if replication_value and (
-                        start_date >= replication_value or end_date <= replication_value
-                    ):
-                        continue
+                        if replication_value and (
+                            start_date >= replication_value or end_date <= replication_value
+                        ):
+                            continue
 
-                    record = transformer.transform(d, self.schema, self.mdata)
-                    singer.write_record(self.tap_stream_id, record)
-                    if not replication_value:
-                        continue
+                        record = transformer.transform(d, self.schema, self.mdata)
+                        singer.write_record(self.tap_stream_id, record)
+                        counter.increment(1)
+                        if not replication_value:
+                            continue
 
-                    new_bookmark = replication_value
-                    if not prev_bookmark:
-                        prev_bookmark = new_bookmark
+                        new_bookmark = replication_value
+                        if not prev_bookmark:
+                            prev_bookmark = new_bookmark
 
-                    if prev_bookmark < new_bookmark:
-                        state = self.__advance_bookmark(state, prev_bookmark)
-                        prev_bookmark = new_bookmark
+                        if prev_bookmark < new_bookmark:
+                            state = self.__advance_bookmark(state, prev_bookmark)
+                            prev_bookmark = new_bookmark
 
-                return self.__advance_bookmark(state, prev_bookmark)
+                    return self.__advance_bookmark(state, prev_bookmark)
 
-            except Exception:
-                self.__advance_bookmark(state, prev_bookmark)
-                raise
+                except Exception:
+                    self.__advance_bookmark(state, prev_bookmark)
+                    raise
 
     def __get_start_end(self, state: dict):
         end_date = pytz.utc.localize(datetime.utcnow())
