@@ -7,7 +7,7 @@ import datetime
 from typing import Dict
 
 LOGGER = singer.get_logger()
-ONE_MINITE = 60
+ONE_MINUTE = 60
 
 
 class Intercom:
@@ -79,7 +79,7 @@ class Intercom:
             ratelimit.exception.RateLimitException,
         ),
     )
-    @limits(calls=1000, period=ONE_MINITE)
+    @limits(calls=1000, period=ONE_MINUTE)
     def call_api(self, url, params={}):
         response = self.SESSION.get(
             url,
