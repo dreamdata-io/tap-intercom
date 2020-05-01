@@ -6,21 +6,16 @@ spec](https://github.com/singer-io/getting-started/blob/master/SPEC.md).
 
 This tap:
 
-- Pulls raw data from the [Intercom v1.4 API](https://developers.intercom.com/intercom-api-reference/reference#introduction)
+- Pulls raw data from the [Intercom v2.0 API](https://developers.intercom.com/intercom-api-reference/reference#introduction)
 - Extracts the following resources:
   - [Admins](https://developers.intercom.com/intercom-api-reference/reference#list-admins)
   - [Companies](https://developers.intercom.com/intercom-api-reference/reference#list-companies)
   - [Conversations](https://developers.intercom.com/intercom-api-reference/reference#list-conversations)
     - [Conversation Parts](https://developers.intercom.com/intercom-api-reference/reference#get-a-single-conversation)
-  - [Data Attributes](https://developers.intercom.com/intercom-api-reference/reference#data-attributes)
-    - [Customer Attributes](https://developers.intercom.com/intercom-api-reference/reference#list-customer-data-attributes)
-    - [Company Attributes](https://developers.intercom.com/intercom-api-reference/reference#list-company-data-attributes)
-  - [Leads](https://developers.intercom.com/intercom-api-reference/reference#list-leads)
+  - [Data Attributes](https://developers.intercom.com/intercom-api-reference/reference#list-data-attributes)
   - [Segments](https://developers.intercom.com/intercom-api-reference/reference#list-segments)
-    - [Company Segments](https://developers.intercom.com/intercom-api-reference/reference#list-segments)
   - [Tags](https://developers.intercom.com/intercom-api-reference/reference#list-tags-for-an-app)
   - [Teams](https://developers.intercom.com/intercom-api-reference/reference#list-teams)
-  - [Users](https://developers.intercom.com/intercom-api-reference/reference#list-users)
 - Outputs the schema for each resource
 - Incrementally pulls data based on the input state
 
@@ -42,26 +37,10 @@ This tap:
   - Bookmark: updated_at (date-time)
 - Transformations: de-nest segments, tags
 
-[company_attributes](https://developers.intercom.com/intercom-api-reference/reference#list-company-data-attributes)
-reference#list-customer-data-attributes)
-- Endpoint: https://api.intercom.io/data_attributes/company
-- Primary key fields: name
-- Foreign key fields: none
-- Replication strategy: FULL_TABLE
-- Transformations: none
-
-[company_segments](https://developers.intercom.com/intercom-api-reference/reference#list-segments)
-- Endpoint: https://api.intercom.io/segments?type=company
-- Primary key fields: id
-- Foreign key fields: none
-- Replication strategy: INCREMENTAL (query all, filter results)
-  - Bookmark: updated_at (date-time)
-- Transformations: none
-
 [conversations](https://developers.intercom.com/intercom-api-reference/reference#list-conversations)
 - Endpoint: https://api.intercom.io/conversations
 - Primary key fields: id
-- Foreign key fields: assignee > id, author > id, customer > id, customers > id, teammate > id, tags > id, user > id 
+- Foreign key fields: assignee > id, author > id, customer > id, customers > id, teammate > id, tags > id, user > id
 - Replication strategy: INCREMENTAL (query all, filter results)
   - Sort: updated_at asc
   - Bookmark: updated_at (date-time)
@@ -73,23 +52,6 @@ reference#list-customer-data-attributes)
 - Foreign key fields: conversation_id, author > id
 - Replication strategy: FULL_TABLE (ALL for each changed parent Conversation)
 - Transformations: Conversation parts with parent conversation_id
-
-[customer_attributes](https://developers.intercom.com/intercom-api-reference/reference#list-customer-data-attributes)
-- Endpoint: https://api.intercom.io/data_attributes/customer
-- Primary key fields: name
-- Foreign key fields: none
-- Replication strategy: FULL_TABLE
-- Transformations: none
-
-[leads](https://developers.intercom.com/intercom-api-reference/reference#list-leads)
-- Endpoint: https://api.intercom.io/contacts
-- Primary key fields: id
-- Foreign key fields: companies > id, segments > id, tags > id
-- Replication strategy: INCREMENTAL (query all or filtered? TBD)
-  - Sort: updated_at asc?
-  - Bookmark query field: updated_since? TBD
-  - Bookmark: updated_at (date-time)
-- Transformations: de-nest companies, segments, social_profiles, tags
 
 [segments](https://developers.intercom.com/intercom-api-reference/reference#list-segments)
 - Endpoint: https://api.intercom.io/segments
@@ -113,18 +75,7 @@ reference#list-customer-data-attributes)
 - Replication strategy: FULL_TABLE
 - Transformations: none
 
-[users](https://developers.intercom.com/intercom-api-reference/reference#list-users)
-- Endpoint: https://api.intercom.io/users
-- Primary key fields: id
-- Foreign key fields: companies > id, segments > id, tags > id
-- Replication strategy: INCREMENTAL (query filtered)
-  - Sort: updated_at asc
-  - Bookmark query field: updated_since
-  - Bookmark: updated_at (date-time)
-- Transformations: de-nest companies, segments, social_profiles, tags
-
 ## Authentication
-
 
 ## Quick Start
 
@@ -158,7 +109,6 @@ reference#list-customer-data-attributes)
     {
         "access_token": "YOUR_API_ACCESS_TOKEN",
         "start_date": "2019-01-01T00:00:00Z",
-        "user_agent": "tap-intercom <api_user_email@your_company.com>"
     }
     ```
     
@@ -166,14 +116,19 @@ reference#list-customer-data-attributes)
 
     ```json
     {
-        "currently_syncing": "teams",
         "bookmarks": {
-            "users": "2019-09-27T22:34:39.000000Z",
-            "companies": "2019-09-28T15:30:26.000000Z",
-            "conversations": "2019-09-28T18:23:53Z",
-            "segments": "2019-09-27T22:40:30.000000Z",
-            "company_segments": "2019-09-27T22:41:24.000000Z",
-            "leads": "2019-09-27T22:16:30.000000Z"
+          "companies": {
+            "updated_at": "2020-04-30T14:37:41+00:00"
+          },
+          "contacts": {
+            "updated_at": "2020-04-30T16:21:56+00:00"
+          },
+          "conversations": {
+            "updated_at": "2020-04-30T09:38:38+00:00"
+          },
+          "segments": {
+            "updated_at": "2020-02-20T12:31:38+00:00"
+          }
         }
     }
     ```
@@ -204,48 +159,3 @@ reference#list-customer-data-attributes)
     > tail -1 state.json > state.json.tmp && mv state.json.tmp state.json
     ```
 
-6. Test the Tap
-    
-    While developing the intercom tap, the following utilities were run in accordance with Singer.io best practices:
-    Pylint to improve [code quality](https://github.com/singer-io/getting-started/blob/master/docs/BEST_PRACTICES.md#code-quality):
-    ```bash
-    > pylint tap_intercom -d missing-docstring -d logging-format-interpolation -d too-many-locals -d too-many-arguments
-    ```
-    Pylint test resulted in the following score:
-    ```bash
-    Your code has been rated at 9.73/10
-    ```
-
-    To [check the tap](https://github.com/singer-io/singer-tools#singer-check-tap) and verify working:
-    ```bash
-    > tap-intercom --config tap_config.json --catalog catalog.json | singer-check-tap > state.json
-    > tail -1 state.json > state.json.tmp && mv state.json.tmp state.json
-    ```
-    Check tap resulted in the following:
-    ```bash
-    The output is valid.
-    It contained 127 messages for 10 streams.
-
-        10 schema messages
-        92 record messages
-        25 state messages
-
-    Details by stream:
-    +---------------------+---------+---------+
-    | stream              | records | schemas |
-    +---------------------+---------+---------+
-    | company_attributes  | 20      | 1       |
-    | customer_attributes | 41      | 1       |
-    | admins              | 3       | 1       |
-    | users               | 5       | 1       |
-    | segments            | 5       | 1       |
-    | tags                | 7       | 1       |
-    | companies           | 3       | 1       |
-    | company_segments    | 4       | 1       |
-    | leads               | 4       | 1       |
-    | teams               | 0       | 1       |
-    +---------------------+---------+---------+
-    ```
----
-
-Copyright &copy; 2019 Stitch

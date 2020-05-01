@@ -1,22 +1,21 @@
 {
   "type": "object",
-  "additionalProperties": false,
   "properties": {
-    "created_at": {
-      "type": ["null", "string"],
-      "format": "date-time"
-    },
-    "count": {
-      "type": ["null", "integer"]
-    },
     "id": {
       "type": ["null", "string"]
     },
     "name": {
       "type": ["null", "string"]
     },
+    "person_type": {
+      "type": ["null", "string"]
+    },
     "type": {
       "type": ["null", "string"]
+    },
+    "created_at": {
+      "type": ["null", "string"],
+      "format": "date-time"
     },
     "updated_at": {
       "type": ["null", "string"],
