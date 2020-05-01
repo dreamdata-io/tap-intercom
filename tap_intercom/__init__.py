@@ -20,8 +20,6 @@ def load_schemas():
     schemas_path = Path(__file__).parent.absolute() / "schemas"
     for schema_path in schemas_path.iterdir():
         stream_name = schema_path.stem
-        LOGGER.info(stream_name)
-
         schemas[stream_name] = json.loads(schema_path.read_text())
 
     return schemas
