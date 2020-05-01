@@ -26,7 +26,7 @@ class Stream:
             None if not valid_replication_keys else valid_replication_keys[0]
         )
         self.config = config
-        self.intercom = Intercom(config["access_token"], self.tap_stream_id)
+        self.intercom = Intercom(config["access_token"])
 
     def do_sync(self, state):
         singer.write_schema(
@@ -38,7 +38,7 @@ class Stream:
             integer_datetime_fmt=UNIX_SECONDS_INTEGER_DATETIME_PARSING
         ) as transformer:
             try:
-                data = self.intercom.get_records()
+                data = self.intercom.get_records(self.tap_stream_id)
                 for d, replication_value in data:
 
                     if replication_value and (
