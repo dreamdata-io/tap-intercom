@@ -63,13 +63,13 @@ class Intercom:
                     data, ["pages", "next", "starting_after"]
                 )
                 if not starting_after:
-                    break
+                    return
                 params["starting_after"] = starting_after
 
             else:
                 url = self.get_value(data, ["pages", "next"])
             if not url or url == "null":
-                break
+                return
 
     @backoff.on_exception(
         backoff.expo,
