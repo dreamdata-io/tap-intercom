@@ -1,12 +1,5 @@
 import singer
-from singer import (
-    metadata,
-    CatalogEntry,
-    Transformer,
-    UNIX_SECONDS_INTEGER_DATETIME_PARSING,
-    _transform_datetime,
-)
-from typing import Union
+from typing import Union, Dict, Optional
 from datetime import timedelta, datetime
 from dateutil import parser
 from tap_intercom.intercom import Intercom
@@ -16,22 +9,12 @@ LOGGER = singer.get_logger()
 
 
 class Stream:
-    def __init__(self, catalog: CatalogEntry, config):
-        self.tap_stream_id = catalog.tap_stream_id
-        self.schema = catalog.schema.to_dict()
-        self.key_properties = catalog.key_properties
-        self.mdata = metadata.to_map(catalog.metadata)
-        valid_replication_keys = self.mdata.get(()).get("valid-replication-keys")
-        self.bookmark_key = (
-            None if not valid_replication_keys else valid_replication_keys[0]
-        )
+    def __init__(self, config: Dict):
         self.config = config
         self.intercom = Intercom(config["access_token"])
 
-    def do_sync(self, state):
-        singer.write_schema(
-            self.tap_stream_id, self.schema, self.key_properties,
-        )
+    def do_sync(self, tap_stream_id: str, state: Optional[datetime] = None):
+
         prev_bookmark = None
         start_date, end_date = self.__get_start_end(state)
         with singer.metrics.record_counter(self.tap_stream_id) as counter:
