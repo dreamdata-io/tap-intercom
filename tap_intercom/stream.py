@@ -16,25 +16,18 @@ class Stream:
     def do_sync(self, tap_stream_id: str, state: Optional[datetime] = None):
 
         prev_bookmark = None
-        start_date, end_date = self.__get_start_end(state)
-        with singer.metrics.record_counter(self.tap_stream_id) as counter:
-            with Transformer(
-                integer_datetime_fmt=UNIX_SECONDS_INTEGER_DATETIME_PARSING
-            ) as transformer:
-                try:
-                    data = self.intercom.get_records(self.tap_stream_id)
-                    for d, replication_value in data:
+        with singer.metrics.record_counter(tap_stream_id) as counter:
+
+            try:
+                data = self.intercom.get_records(tap_stream_id)
+                for record, replication_value in data:
 
                         if replication_value and (
                             start_date >= replication_value or end_date <= replication_value
                         ):
                             continue
 
-                        record = transformer.transform(d, self.schema, self.mdata)
-                        singer.write_record(self.tap_stream_id, record)
-                        counter.increment(1)
-                        if not replication_value:
-                            continue
+
 
                         new_bookmark = replication_value
                         if not prev_bookmark:
