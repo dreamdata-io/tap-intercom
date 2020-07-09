@@ -107,6 +107,7 @@ class Intercom:
             requests.exceptions.HTTPError,
             ratelimit.exception.RateLimitException,
         ),
+        max_tries=5,
     )
     @limits(calls=1000, period=ONE_MINUTE)
     def call_api(self, url, params={}):
