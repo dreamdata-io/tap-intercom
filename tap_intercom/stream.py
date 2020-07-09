@@ -6,6 +6,7 @@ from tap_intercom.intercom import Intercom
 import pytz
 
 LOGGER = singer.get_logger()
+BOOKMARK_KEY = "updated_at"
 
 
 class Stream:
@@ -16,34 +17,49 @@ class Stream:
     def do_sync(self, tap_stream_id: str, state: Optional[datetime] = None):
 
         prev_bookmark = None
+        start_date, end_date = self.__get_start_end(
+            state=state, bookmark_key=BOOKMARK_KEY, tap_stream_id=tap_stream_id
+        )
         with singer.metrics.record_counter(tap_stream_id) as counter:
 
             try:
                 data = self.intercom.get_records(tap_stream_id)
                 for record, replication_value in data:
 
-                        if replication_value and (
-                            start_date >= replication_value or end_date <= replication_value
-                        ):
-                            continue
+                    if replication_value and (
+                        start_date >= replication_value or end_date <= replication_value
+                    ):
+                        continue
 
 
+                    singer.write_record(tap_stream_id, record)
+                    counter.increment(1)
+                    if not replication_value:
+                        continue
 
-                        new_bookmark = replication_value
-                        if not prev_bookmark:
-                            prev_bookmark = new_bookmark
+                    new_bookmark = replication_value
+                    if not prev_bookmark:
+                        prev_bookmark = new_bookmark
 
-                        if prev_bookmark < new_bookmark:
-                            state = self.__advance_bookmark(state, prev_bookmark)
-                            prev_bookmark = new_bookmark
+                    if prev_bookmark >= new_bookmark:
+                        continue
+                    self.__advance_bookmark(
+                        state=state,
+                        bookmark=prev_bookmark,
+                        bookmark_key=BOOKMARK_KEY,
+                        tap_stream_id=tap_stream_id,
+                    )
+                    prev_bookmark = new_bookmark
 
-                    return self.__advance_bookmark(state, prev_bookmark)
+            finally:
+                self.__advance_bookmark(
+                    state=state,
+                    bookmark=prev_bookmark,
+                    bookmark_key=BOOKMARK_KEY,
+                    tap_stream_id=tap_stream_id,
+                )
 
-                except Exception:
-                    self.__advance_bookmark(state, prev_bookmark)
-                    raise
-
-    def __get_start_end(self, state: dict):
+    def __get_start_end(self, state: dict, bookmark_key: str, tap_stream_id: str):
         end_date = pytz.utc.localize(datetime.utcnow())
         LOGGER.info(f"sync data until: {end_date}")
 
@@ -57,12 +73,12 @@ class Stream:
             LOGGER.info(f"using 'start_date' from config: {config_start_date}")
             return config_start_date, end_date
 
-        account_record = state["bookmarks"].get(self.tap_stream_id, None)
+        account_record = state["bookmarks"].get(tap_stream_id, None)
         if not account_record:
             LOGGER.info(f"using 'start_date' from config: {config_start_date}")
             return config_start_date, end_date
 
-        current_bookmark = account_record.get(self.bookmark_key, None)
+        current_bookmark = account_record.get(bookmark_key, None)
         if not current_bookmark:
             LOGGER.info(f"using 'start_date' from config: {config_start_date}")
             return config_start_date, end_date
@@ -71,7 +87,13 @@ class Stream:
         LOGGER.info(f"using 'start_date' from previous state: {start_date}")
         return start_date, end_date
 
-    def __advance_bookmark(self, state: dict, bookmark: Union[str, datetime, None]):
+    def __advance_bookmark(
+        self,
+        state: dict,
+        bookmark: Union[str, datetime, None],
+        bookmark_key: str,
+        tap_stream_id: str,
+    ):
         if not bookmark:
             singer.write_state(state)
             return state
@@ -86,7 +108,7 @@ class Stream:
             )
 
         state = singer.write_bookmark(
-            state, self.tap_stream_id, self.bookmark_key, bookmark_datetime.isoformat()
+            state, tap_stream_id, bookmark_key, bookmark_datetime.isoformat()
         )
         singer.write_state(state)
         return state
