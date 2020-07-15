@@ -1,73 +1,60 @@
 import singer
-from singer import (
-    metadata,
-    CatalogEntry,
-    Transformer,
-    UNIX_SECONDS_INTEGER_DATETIME_PARSING,
-    _transform_datetime,
-)
-from typing import Union
+from typing import Union, Dict, Optional
 from datetime import timedelta, datetime
 from dateutil import parser
 from tap_intercom.intercom import Intercom
 import pytz
 
 LOGGER = singer.get_logger()
+BOOKMARK_KEY = "updated_at"
 
 
 class Stream:
-    def __init__(self, catalog: CatalogEntry, config):
-        self.tap_stream_id = catalog.tap_stream_id
-        self.schema = catalog.schema.to_dict()
-        self.key_properties = catalog.key_properties
-        self.mdata = metadata.to_map(catalog.metadata)
-        valid_replication_keys = self.mdata.get(()).get("valid-replication-keys")
-        self.bookmark_key = (
-            None if not valid_replication_keys else valid_replication_keys[0]
-        )
+    def __init__(self, config: Dict):
         self.config = config
         self.intercom = Intercom(config["access_token"])
 
-    def do_sync(self, state):
-        singer.write_schema(
-            self.tap_stream_id, self.schema, self.key_properties,
-        )
+    def do_sync(self, tap_stream_id: str, state: Optional[datetime] = None):
+
         prev_bookmark = None
-        start_date, end_date = self.__get_start_end(state)
-        with singer.metrics.record_counter(self.tap_stream_id) as counter:
-            with Transformer(
-                integer_datetime_fmt=UNIX_SECONDS_INTEGER_DATETIME_PARSING
-            ) as transformer:
-                try:
-                    data = self.intercom.get_records(self.tap_stream_id)
-                    for d, replication_value in data:
+        start_date, end_date = self.__get_start_end(
+            state=state, tap_stream_id=tap_stream_id
+        )
+        with singer.metrics.record_counter(tap_stream_id) as counter:
 
-                        if replication_value and (
-                            start_date >= replication_value or end_date <= replication_value
-                        ):
-                            continue
+            try:
+                data = self.intercom.get_records(tap_stream_id)
+                for record, replication_value in data:
 
-                        record = transformer.transform(d, self.schema, self.mdata)
-                        singer.write_record(self.tap_stream_id, record)
-                        counter.increment(1)
-                        if not replication_value:
-                            continue
+                    if replication_value and (
+                        start_date >= replication_value or end_date <= replication_value
+                    ):
+                        continue
 
-                        new_bookmark = replication_value
-                        if not prev_bookmark:
-                            prev_bookmark = new_bookmark
+                    singer.write_record(tap_stream_id, record)
+                    counter.increment(1)
+                    if not replication_value:
+                        continue
 
-                        if prev_bookmark < new_bookmark:
-                            state = self.__advance_bookmark(state, prev_bookmark)
-                            prev_bookmark = new_bookmark
+                    new_bookmark = replication_value
+                    if not prev_bookmark:
+                        prev_bookmark = new_bookmark
 
-                    return self.__advance_bookmark(state, prev_bookmark)
+                    if prev_bookmark >= new_bookmark:
+                        continue
+                    self.__advance_bookmark(
+                        state=state,
+                        bookmark=prev_bookmark,
+                        tap_stream_id=tap_stream_id,
+                    )
+                    prev_bookmark = new_bookmark
 
-                except Exception:
-                    self.__advance_bookmark(state, prev_bookmark)
-                    raise
+            finally:
+                self.__advance_bookmark(
+                    state=state, bookmark=prev_bookmark, tap_stream_id=tap_stream_id,
+                )
 
-    def __get_start_end(self, state: dict):
+    def __get_start_end(self, state: dict, tap_stream_id: str):
         end_date = pytz.utc.localize(datetime.utcnow())
         LOGGER.info(f"sync data until: {end_date}")
 
@@ -81,12 +68,12 @@ class Stream:
             LOGGER.info(f"using 'start_date' from config: {config_start_date}")
             return config_start_date, end_date
 
-        account_record = state["bookmarks"].get(self.tap_stream_id, None)
+        account_record = state["bookmarks"].get(tap_stream_id, None)
         if not account_record:
             LOGGER.info(f"using 'start_date' from config: {config_start_date}")
             return config_start_date, end_date
 
-        current_bookmark = account_record.get(self.bookmark_key, None)
+        current_bookmark = account_record.get(BOOKMARK_KEY, None)
         if not current_bookmark:
             LOGGER.info(f"using 'start_date' from config: {config_start_date}")
             return config_start_date, end_date
@@ -95,7 +82,9 @@ class Stream:
         LOGGER.info(f"using 'start_date' from previous state: {start_date}")
         return start_date, end_date
 
-    def __advance_bookmark(self, state: dict, bookmark: Union[str, datetime, None]):
+    def __advance_bookmark(
+        self, state: dict, bookmark: Union[str, datetime, None], tap_stream_id: str,
+    ):
         if not bookmark:
             singer.write_state(state)
             return state
@@ -110,7 +99,7 @@ class Stream:
             )
 
         state = singer.write_bookmark(
-            state, self.tap_stream_id, self.bookmark_key, bookmark_datetime.isoformat()
+            state, tap_stream_id, BOOKMARK_KEY, bookmark_datetime.isoformat()
         )
         singer.write_state(state)
         return state
