@@ -51,7 +51,9 @@ class Stream:
 
             finally:
                 self.__advance_bookmark(
-                    state=state, bookmark=prev_bookmark, tap_stream_id=tap_stream_id,
+                    state=state,
+                    bookmark=prev_bookmark,
+                    tap_stream_id=tap_stream_id,
                 )
 
     def __get_start_end(self, state: dict, tap_stream_id: str):
@@ -83,7 +85,10 @@ class Stream:
         return start_date, end_date
 
     def __advance_bookmark(
-        self, state: dict, bookmark: Union[str, datetime, None], tap_stream_id: str,
+        self,
+        state: dict,
+        bookmark: Union[str, datetime, None],
+        tap_stream_id: str,
     ):
         if not bookmark:
             singer.write_state(state)
