@@ -87,7 +87,9 @@ class Stream:
         if config_start_date:
             config_start_date = parser.isoparse(config_start_date)
         else:
-            config_start_date = datetime.utcnow() + timedelta(weeks=4)
+            config_start_date = pytz.utc.localize(datetime.utcnow()) - timedelta(
+                weeks=4
+            )
 
         if not state:
             LOGGER.info(f"using 'start_date' from config: {config_start_date}")
