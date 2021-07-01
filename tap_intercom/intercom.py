@@ -17,6 +17,27 @@ class Intercom:
         self.SESSION = requests.Session()
         self.access_token = access_token
 
+    def scroll_companies(self):
+        url = f"{self.BASE_URL}/companies/scroll"
+        scroll_param: str = None
+
+        while True:
+            # This is a little iffy, because the endpoint specifically mentions erroring out
+            # due to timeouts, which results in a 500 Internal Server Error. When this happens
+            # you need to retry the entire scrolling process.
+            # I've been unable to confirm if you can immediately retry the scroll process, or
+            # if you actually need to wait for 1 minute until the scroll is reset for the app.
+            data = self.call_api(url, {"scroll_param": scroll_param})
+
+            companies = data.get("data")
+            scroll_param = data.get("scroll_param")
+
+            if not companies:
+                break
+
+            for company in companies:
+                yield company, self.unixseconds_to_datetime(company["updated_at"])
+
     def get_records(self, tap_stream_id):
         data_field = "data"
         endpoint = tap_stream_id
