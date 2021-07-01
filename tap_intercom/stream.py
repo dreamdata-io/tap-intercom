@@ -21,40 +21,63 @@ class Stream:
             state=state, tap_stream_id=tap_stream_id
         )
         with singer.metrics.record_counter(tap_stream_id) as counter:
+            # The Intercom API doesn't allow for iterating through more than 10k companies
+            # using the list endpoint with pagination, instead requiring us to use their
+            # special "scroll" endpoint.
+            if tap_stream_id == "companies":
+                data = self.intercom.scroll_companies()
+                # Since we're guarding against records updated before the start date, it's
+                # safe to assume that the latest updated record in the end will be equal to
+                # or greater than the start date.
+                latest_updated_record = start_date
 
-            try:
-                data = self.intercom.get_records(tap_stream_id)
                 for record, replication_value in data:
-
-                    if replication_value and (
-                        start_date >= replication_value or end_date <= replication_value
-                    ):
+                    if replication_value < start_date:
                         continue
 
                     singer.write_record(tap_stream_id, record)
                     counter.increment(1)
-                    if not replication_value:
-                        continue
 
-                    new_bookmark = replication_value
-                    if not prev_bookmark:
+                    latest_updated_record = max(
+                        latest_updated_record, replication_value
+                    )
+
+                self.__advance_bookmark(state, latest_updated_record, tap_stream_id)
+            else:
+                try:
+                    data = self.intercom.get_records(tap_stream_id)
+                    for record, replication_value in data:
+
+                        if replication_value and (
+                            start_date >= replication_value
+                            or end_date <= replication_value
+                        ):
+                            continue
+
+                        singer.write_record(tap_stream_id, record)
+                        counter.increment(1)
+                        if not replication_value:
+                            continue
+
+                        new_bookmark = replication_value
+                        if not prev_bookmark:
+                            prev_bookmark = new_bookmark
+
+                        if prev_bookmark >= new_bookmark:
+                            continue
+                        self.__advance_bookmark(
+                            state=state,
+                            bookmark=prev_bookmark,
+                            tap_stream_id=tap_stream_id,
+                        )
                         prev_bookmark = new_bookmark
 
-                    if prev_bookmark >= new_bookmark:
-                        continue
+                finally:
                     self.__advance_bookmark(
                         state=state,
                         bookmark=prev_bookmark,
                         tap_stream_id=tap_stream_id,
                     )
-                    prev_bookmark = new_bookmark
-
-            finally:
-                self.__advance_bookmark(
-                    state=state,
-                    bookmark=prev_bookmark,
-                    tap_stream_id=tap_stream_id,
-                )
 
     def __get_start_end(self, state: dict, tap_stream_id: str):
         end_date = pytz.utc.localize(datetime.utcnow())
