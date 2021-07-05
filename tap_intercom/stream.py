@@ -16,7 +16,7 @@ class Stream:
 
     def do_sync(self, tap_stream_id: str, state: Optional[datetime] = None):
 
-        prev_bookmark = None
+        latest_bookmark = None
         start_date, end_date = self.__get_start_end(
             state=state, tap_stream_id=tap_stream_id
         )
@@ -42,23 +42,23 @@ class Stream:
                     if not replication_value:
                         continue
 
-                    new_bookmark = replication_value
-                    if not prev_bookmark:
-                        prev_bookmark = new_bookmark
+                    if not latest_bookmark:
+                        latest_bookmark = replication_value
 
-                    if prev_bookmark >= new_bookmark:
+                    if latest_bookmark >= replication_value:
                         continue
+
                     self.__advance_bookmark(
                         state=state,
-                        bookmark=prev_bookmark,
+                        bookmark=latest_bookmark,
                         tap_stream_id=tap_stream_id,
                     )
-                    prev_bookmark = new_bookmark
+                    latest_bookmark = replication_value
 
             finally:
                 self.__advance_bookmark(
                     state=state,
-                    bookmark=prev_bookmark,
+                    bookmark=latest_bookmark,
                     tap_stream_id=tap_stream_id,
                 )
 
