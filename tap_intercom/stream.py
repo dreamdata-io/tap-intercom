@@ -16,14 +16,20 @@ class Stream:
 
     def do_sync(self, tap_stream_id: str, state: Optional[datetime] = None):
 
-        prev_bookmark = None
+        latest_bookmark = None
         start_date, end_date = self.__get_start_end(
             state=state, tap_stream_id=tap_stream_id
         )
         with singer.metrics.record_counter(tap_stream_id) as counter:
-
             try:
-                data = self.intercom.get_records(tap_stream_id)
+                # The Intercom API doesn't allow for iterating through more than 10k companies
+                # using the list endpoint with pagination, instead requiring us to use their
+                # special "scroll" endpoint.
+                if tap_stream_id == "companies":
+                    data = self.intercom.scroll_companies()
+                else:
+                    data = self.intercom.get_records(tap_stream_id)
+
                 for record, replication_value in data:
 
                     if replication_value and (
@@ -36,22 +42,24 @@ class Stream:
                     if not replication_value:
                         continue
 
-                    new_bookmark = replication_value
-                    if not prev_bookmark:
-                        prev_bookmark = new_bookmark
+                    if not latest_bookmark:
+                        latest_bookmark = replication_value
 
-                    if prev_bookmark >= new_bookmark:
+                    if latest_bookmark >= replication_value:
                         continue
+
                     self.__advance_bookmark(
                         state=state,
-                        bookmark=prev_bookmark,
+                        bookmark=latest_bookmark,
                         tap_stream_id=tap_stream_id,
                     )
-                    prev_bookmark = new_bookmark
+                    latest_bookmark = replication_value
 
             finally:
                 self.__advance_bookmark(
-                    state=state, bookmark=prev_bookmark, tap_stream_id=tap_stream_id,
+                    state=state,
+                    bookmark=latest_bookmark,
+                    tap_stream_id=tap_stream_id,
                 )
 
     def __get_start_end(self, state: dict, tap_stream_id: str):
@@ -62,7 +70,9 @@ class Stream:
         if config_start_date:
             config_start_date = parser.isoparse(config_start_date)
         else:
-            config_start_date = datetime.utcnow() + timedelta(weeks=4)
+            config_start_date = pytz.utc.localize(datetime.utcnow()) - timedelta(
+                weeks=4
+            )
 
         if not state:
             LOGGER.info(f"using 'start_date' from config: {config_start_date}")
@@ -83,7 +93,10 @@ class Stream:
         return start_date, end_date
 
     def __advance_bookmark(
-        self, state: dict, bookmark: Union[str, datetime, None], tap_stream_id: str,
+        self,
+        state: dict,
+        bookmark: Union[str, datetime, None],
+        tap_stream_id: str,
     ):
         if not bookmark:
             singer.write_state(state)

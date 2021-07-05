@@ -1,6 +1,7 @@
 import requests
 from ratelimit import limits
 import ratelimit
+from requests.models import HTTPError
 import singer
 import backoff
 import datetime
@@ -10,12 +11,74 @@ LOGGER = singer.get_logger()
 ONE_MINUTE = 60
 
 
+def _is_internal_server_error(e: requests.HTTPError) -> bool:
+    return e.response.status_code == 500
+
+
 class Intercom:
     BASE_URL = "https://api.intercom.io"
 
     def __init__(self, access_token):
         self.SESSION = requests.Session()
         self.access_token = access_token
+
+    def scroll_companies(self):
+        # The scroll endpoint specifically documents that a 500 Internal Server Error may occur
+        # while iterating the scroll results. If this occurs, the scroll cannot be continued,
+        # meaning we need to restart the entire process.
+        # This is consistently testable either, so if this blows up, blame bad API design.
+        url = f"{self.BASE_URL}/companies/scroll"
+
+        for _ in range(0, 5):
+            try:
+                scroll_param: str = None
+
+                while True:
+                    data = self.call_scroll_api(url, {"scroll_param": scroll_param})
+
+                    companies = data.get("data")
+                    scroll_param = data.get("scroll_param")
+
+                    if not companies:
+                        return
+
+                    for company in companies:
+                        yield company, self.unixseconds_to_datetime(
+                            company["updated_at"]
+                        )
+            except HTTPError as err:
+                # This is likely to occur if the tap is run more than once in a short interval.
+                # Basically, only one scroll can be done per application at a time, and if a
+                # a second one is attempted, it will result in a 400 Bad Request.
+                # Yeah, it's weird.
+                if err.response.status_code != 500:
+                    raise
+
+        raise RuntimeError("attempted to restart companies scroll more than 5 times")
+
+    @backoff.on_exception(
+        backoff.expo,
+        (
+            requests.exceptions.RequestException,
+            requests.exceptions.HTTPError,
+            ratelimit.exception.RateLimitException,
+        ),
+        max_tries=5,
+        giveup=_is_internal_server_error,
+    )
+    @limits(calls=1000, period=ONE_MINUTE)
+    def call_scroll_api(self, url, params={}):
+        response = self.SESSION.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {self.access_token}",
+                "Accept": "application/json",
+            },
+            params=params,
+        )
+        LOGGER.debug(response.url)
+        response.raise_for_status()
+        return response.json()
 
     def get_records(self, tap_stream_id):
         data_field = "data"
