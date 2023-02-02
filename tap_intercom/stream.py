@@ -4,9 +4,14 @@ from datetime import timedelta, datetime
 from dateutil import parser
 from tap_intercom.intercom import Intercom
 import pytz
+import requests
+
 
 LOGGER = singer.get_logger()
 BOOKMARK_KEY = "updated_at"
+
+class InvalidCredentialsError(Exception):
+    pass
 
 
 class Stream:
@@ -54,6 +59,15 @@ class Stream:
                         tap_stream_id=tap_stream_id,
                     )
                     latest_bookmark = replication_value
+            except requests.exceptions.HTTPError as e:
+                data = e.response.json()
+                errors = data.get("errors", [])
+                if errors:
+                    code = errors[0].get("code")
+                    message = errors[0].get("message")
+                    if code == "unauthorized" and message == "Access Token Invalid":
+                        raise InvalidCredentialsError(e)
+                raise e
 
             finally:
                 self.__advance_bookmark(

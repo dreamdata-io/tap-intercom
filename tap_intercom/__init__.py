@@ -4,6 +4,8 @@ import singer
 from singer import utils
 from tap_intercom.stream import Stream
 from typing import Optional, Dict
+from tap_intercom.stream import InvalidCredentialsError
+import sys
 
 REQUIRED_CONFIG_KEYS = [
     "start_date",
@@ -26,7 +28,11 @@ def sync(config: Dict, state: Optional[Dict] = None):
 def main():
 
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)
-    sync(args.config, args.state)
+    try:
+        sync(args.config, args.state)
+    except InvalidCredentialsError as e:
+        LOGGER.error(f"Invalid Credentials Error. error: {str(e)}")
+        sys.exit(5)
 
 
 if __name__ == "__main__":
