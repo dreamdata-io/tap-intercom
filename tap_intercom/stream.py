@@ -64,9 +64,9 @@ class Stream:
                 errors = data.get("errors", [])
                 if errors:
                     code = errors[0].get("code")
-                    message = errors[0].get("message")
-                    if code == "unauthorized" and message == "Access Token Invalid":
+                    if code == "token_suspended" or code == "unauthorized":
                         raise InvalidCredentialsError(e)
+
                 raise e
 
             finally:
