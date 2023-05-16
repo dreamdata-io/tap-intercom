@@ -64,6 +64,8 @@ class Intercom:
             ratelimit.exception.RateLimitException,
         ),
         max_tries=5,
+        base=5,
+        factor=1,
         giveup=_is_internal_server_error,
     )
     @limits(calls=1000, period=ONE_MINUTE)
@@ -121,7 +123,6 @@ class Intercom:
             data_field=data_field,
             params=params,
         ):
-
             replication_value = self.unixseconds_to_datetime(
                 self.get_value(record, replication_path)
             )
@@ -171,6 +172,8 @@ class Intercom:
             ratelimit.exception.RateLimitException,
         ),
         max_tries=5,
+        base=5,
+        factor=1,
     )
     @limits(calls=1000, period=ONE_MINUTE)
     def call_api(self, url, params={}):
