@@ -12,7 +12,7 @@ REQUIRED_CONFIG_KEYS = [
     "access_token",
 ]
 LOGGER = singer.get_logger()
-STREAMS = ["companies", "contacts", "conversations", "segments", "tags"]
+STREAMS = ["companies", "contacts", "conversations"]
 
 
 def sync(config: Dict, state: Optional[Dict] = None):
