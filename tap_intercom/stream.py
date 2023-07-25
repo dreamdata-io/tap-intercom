@@ -10,6 +10,7 @@ import requests
 LOGGER = singer.get_logger()
 BOOKMARK_KEY = "updated_at"
 
+
 class InvalidCredentialsError(Exception):
     pass
 

@@ -19,14 +19,12 @@ def sync(config: Dict, state: Optional[Dict] = None):
     stream = Stream(config)
 
     for tap_stream_id in STREAMS:
-
         LOGGER.info(f"syncing {stream}")
         stream.do_sync(tap_stream_id=tap_stream_id, state=state)
 
 
 @utils.handle_top_exception(LOGGER)
 def main():
-
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)
     try:
         sync(args.config, args.state)
