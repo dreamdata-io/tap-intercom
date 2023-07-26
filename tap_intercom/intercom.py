@@ -6,6 +6,7 @@ import singer
 import backoff
 import datetime
 from typing import Dict
+from simplejson.scanner import JSONDecodeError
 
 LOGGER = singer.get_logger()
 ONE_MINUTE = 60
@@ -62,10 +63,11 @@ class Intercom:
             requests.exceptions.RequestException,
             requests.exceptions.HTTPError,
             ratelimit.exception.RateLimitException,
+            JSONDecodeError,
         ),
-        max_tries=5,
-        base=5,
-        factor=1,
+        max_tries=20,
+        factor=5,
+        max_time=60 * 10,
         giveup=_is_internal_server_error,
     )
     @limits(calls=1000, period=ONE_MINUTE)
@@ -170,10 +172,12 @@ class Intercom:
             requests.exceptions.RequestException,
             requests.exceptions.HTTPError,
             ratelimit.exception.RateLimitException,
+            JSONDecodeError,
         ),
-        max_tries=5,
-        base=5,
-        factor=1,
+        max_tries=20,
+        factor=5,
+        max_time=60 * 10,
+        giveup=_is_internal_server_error,
     )
     @limits(calls=1000, period=ONE_MINUTE)
     def call_api(self, url, params={}):
