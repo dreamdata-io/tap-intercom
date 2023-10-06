@@ -21,7 +21,6 @@ class Stream:
         self.intercom = Intercom(config["access_token"])
 
     def do_sync(self, tap_stream_id: str, state: Optional[datetime] = None):
-
         latest_bookmark = None
         start_date, end_date = self.__get_start_end(
             state=state, tap_stream_id=tap_stream_id
@@ -33,11 +32,14 @@ class Stream:
                 # special "scroll" endpoint.
                 if tap_stream_id == "companies":
                     data = self.intercom.scroll_companies()
+                # To increase performance of fetching, a POST search
+                # endpoint is used because it offers more fine-grained filtering.
+                elif tap_stream_id in ["contacts", "conversations"]:
+                    data = self.intercom.search(tap_stream_id, start_date, end_date)
                 else:
                     data = self.intercom.get_records(tap_stream_id)
 
                 for record, replication_value in data:
-
                     if replication_value and (
                         start_date >= replication_value or end_date <= replication_value
                     ):
