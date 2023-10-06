@@ -74,7 +74,10 @@ class Intercom:
     def call_scroll_api(self, url, params={}):
         response = self.SESSION.get(
             url,
-            headers=self.__make_header(),
+            headers={
+                "Authorization": f"Bearer {self.access_token}",
+                "Accept": "application/json",
+            },
             params=params,
         )
         LOGGER.debug(response.url)
@@ -88,8 +91,11 @@ class Intercom:
         page_size = 60
         pagination_path = ["pages", "next"]
 
-        if tap_stream_id == "conversations":
+        if tap_stream_id in ["conversations", "segments"]:
             data_field = tap_stream_id
+        if tap_stream_id == "contacts":
+            pagination_path.append("starting_after")
+            page_size = 150
 
         yield from self.__get(
             page_size=page_size,
@@ -177,95 +183,12 @@ class Intercom:
     def call_api(self, url, params={}):
         response = self.SESSION.get(
             url,
-            headers=self.__make_header(),
-            params=params,
-        )
-        LOGGER.debug(response.url)
-        response.raise_for_status()
-        return response.json()
-
-    @backoff.on_exception(
-        backoff.expo,
-        (
-            requests.exceptions.RequestException,
-            requests.exceptions.HTTPError,
-            ratelimit.exception.RateLimitException,
-            JSONDecodeError,
-        ),
-        max_tries=20,
-        factor=5,
-        max_time=60 * 10,
-        giveup=_is_internal_server_error,
-    )
-    @limits(calls=1000, period=ONE_MINUTE)
-    def call_search_api(self, url, params={}, json=None):
-        response = self.SESSION.post(
-            url,
-            headers=self.__make_header(),
-            params=params,
-            json=json,
-        )
-        LOGGER.debug(response.url)
-        response.raise_for_status()
-        return response.json()
-
-    def search(self, tap_stream_id, start_date, end_date):
-        url = f"{self.BASE_URL}/{tap_stream_id}/search"
-
-        data_field = tap_stream_id
-        if tap_stream_id == "contacts":
-            data_field = "data"
-
-        # For more options:
-        # https://developers.intercom.com/docs/references/rest-api/api.intercom.io/Contacts/SearchContacts/
-        per_page = 150
-        pagination = {"page": 0, "per_page": per_page}
-        json = {
-            "query": {
-                "operator": "OR",
-                "value": [
-                    {
-                        "operator": "AND",
-                        "value": [
-                            {
-                                "field": "updated_at",
-                                "operator": ">",
-                                "value": start_date.timestamp(),
-                            },
-                            {
-                                "field": "updated_at",
-                                "operator": "<",
-                                "value": end_date.timestamp(),
-                            },
-                        ],
-                    },
-                    {
-                        "field": "updated_at",
-                        "operator": "=",
-                        "value": start_date.timestamp(),
-                    },
-                ],
+            headers={
+                "Authorization": f"Bearer {self.access_token}",
+                "Accept": "application/json",
             },
-            "sort": {"field": "updated_at", "order": "ascending"},
-            "pagination": pagination,
-        }
-        pagination_path = ["pages", "next"]
-        replication_path = ["updated_at"]
-        while True:
-            response_data = self.call_search_api(url, json=json)
-            if response_data:
-                records = self.get_value(response_data, [data_field])
-                for record in records:
-                    replication_value = self.get_value(record, replication_path)
-                    yield record, self.unixseconds_to_datetime(replication_value)
-            pagination = self.get_value(response_data, pagination_path)
-            if not pagination or pagination == "null":
-                return
-            pagination["per_page"] = per_page
-            json["pagination"] = pagination
-
-    def __make_header(self):
-        return {
-            "Authorization": f"Bearer {self.access_token}",
-            "Accept": "application/json",
-        }
+            params=params,
+        )
+        LOGGER.debug(response.url)
+        response.raise_for_status()
+        return response.json()
