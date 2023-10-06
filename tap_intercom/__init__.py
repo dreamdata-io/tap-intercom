@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import json
 import singer
 from singer import utils
 from tap_intercom.stream import Stream
@@ -19,7 +18,7 @@ def sync(config: Dict, state: Optional[Dict] = None):
     stream = Stream(config)
 
     for tap_stream_id in STREAMS:
-        LOGGER.info(f"syncing {stream}")
+        LOGGER.info(f"syncing {tap_stream_id}")
         stream.do_sync(tap_stream_id=tap_stream_id, state=state)
 
 
