@@ -255,9 +255,10 @@ class Intercom:
             response_data = self.call_search_api(url, json=json)
             if response_data:
                 records = self.get_value(response_data, [data_field])
-                for record in records:
-                    replication_value = self.get_value(record, replication_path)
-                    yield record, self.unixseconds_to_datetime(replication_value)
+                if records:
+                    for record in records:
+                        replication_value = self.get_value(record, replication_path)
+                        yield record, self.unixseconds_to_datetime(replication_value)
             pagination = self.get_value(response_data, pagination_path)
             if not pagination or pagination == "null":
                 return
