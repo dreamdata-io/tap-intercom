@@ -36,7 +36,7 @@ class Intercom:
 
                 while True:
                     data = self.call_scroll_api(url, {"scroll_param": scroll_param})
-
+                    
                     companies = data.get("data")
                     scroll_param = data.get("scroll_param")
 
@@ -52,9 +52,9 @@ class Intercom:
                 # Basically, only one scroll can be done per application at a time, and if a
                 # a second one is attempted, it will result in a 400 Bad Request.
                 # Yeah, it's weird.
-                if err.response.status_code != 500:
+                if err.response.status_code not in [500, 400]:
                     raise
-
+                    
         raise RuntimeError("attempted to restart companies scroll more than 5 times")
 
     @backoff.on_exception(
