@@ -13,6 +13,9 @@ ONE_MINUTE = 60
 
 
 def _is_internal_server_error(e: requests.HTTPError) -> bool:
+    if not e.response:
+        return True
+
     return e.response.status_code == 500
 
 
